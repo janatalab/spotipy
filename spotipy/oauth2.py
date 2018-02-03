@@ -125,16 +125,22 @@ class SpotifyOAuth(object):
     def _get_s3_bucket(self):
         s3_bucket = None
 
-        # Try establishing a connection to an AWS S3 bucket
+        # Establish a connection to an AWS S3 bucket
         if self.aws:
-            import boto3
-            s3_bucket = boto3.resource(
-                's3',
-                aws_access_key_id= self.aws['aws_access_key_id'],
-                aws_secret_access_key=self.aws['aws_secret_access_key'],
-            ).Bucket(self.aws['s3_bucket'])
+            import boto3, botocore
 
-        # Fetch the bucket. Assumes it has been created previously
+            try:
+                s3 = boto3.resource(
+                    's3',
+                    aws_access_key_id= self.aws['aws_access_key_id'],
+                    aws_secret_access_key=self.aws['aws_secret_access_key'],
+                )
+
+                # get/create the bucket
+                s3_bucket = s3.create_bucket(Bucket=self.aws['s3_bucket'])
+            except botocore.client.ClientError:
+                pass
+
         return s3_bucket
 
     def get_cached_token(self):
@@ -145,9 +151,14 @@ class SpotifyOAuth(object):
             try:
                 # If we have an s3 bucket object, download the file
                 if self.aws:
+                    import botocore
+
                     fname = os.path.basename(self.cache_path)
 
-                    self._get_s3_bucket().download_file(fname, self.cache_path)
+                    try:
+                        self._get_s3_bucket().download_file(fname, self.cache_path)
+                    except botocore.client.ClientError:
+                        pass
 
                 f = open(self.cache_path)
                 token_info_string = f.read()
