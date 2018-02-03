@@ -99,7 +99,7 @@ class SpotifyOAuth(object):
     OAUTH_TOKEN_URL = 'https://accounts.spotify.com/api/token'
 
     def __init__(self, client_id, client_secret, redirect_uri,
-            state=None, scope=None, cache_path=None, proxies=None):
+            state=None, scope=None, cache_path=None, proxies=None, aws=None):
         '''
             Creates a SpotifyOAuth object
 
@@ -110,6 +110,7 @@ class SpotifyOAuth(object):
                  - state - security state
                  - scope - the desired scope of the request
                  - cache_path - path to location to save tokens
+                 - aws - information for caching token_info in an AWS S3 bucket
         '''
 
         self.client_id = client_id
@@ -119,6 +120,22 @@ class SpotifyOAuth(object):
         self.cache_path = cache_path
         self.scope=self._normalize_scope(scope)
         self.proxies = proxies
+        self.aws = aws
+
+    def _get_s3_bucket(self):
+        s3_bucket = None
+
+        # Try establishing a connection to an AWS S3 bucket
+        if self.aws:
+            import boto3
+            s3_bucket = boto3.resource(
+                's3',
+                aws_access_key_id= self.aws['aws_access_key_id'],
+                aws_secret_access_key=self.aws['aws_secret_access_key'],
+            ).Bucket(self.aws['s3_bucket'])
+
+        # Fetch the bucket. Assumes it has been created previously
+        return s3_bucket
 
     def get_cached_token(self):
         ''' Gets a cached auth token
@@ -126,6 +143,13 @@ class SpotifyOAuth(object):
         token_info = None
         if self.cache_path:
             try:
+                # If we have an s3 bucket object, download the file
+                if self.aws:
+                    import boto3
+                    fname = os.path.basename(self.cache_path)
+
+                    self._get_s3_bucket().download_file(fname, self.cache_path)
+
                 f = open(self.cache_path)
                 token_info_string = f.read()
                 f.close()
@@ -148,6 +172,12 @@ class SpotifyOAuth(object):
                 f = open(self.cache_path, 'w')
                 f.write(json.dumps(token_info))
                 f.close()
+
+                # If we have an open s3 bucket, upload the file
+                if self.aws:
+                    fname = os.path.basename(self.cache_path)
+                    self._get_s3_bucket().upload_file(self.cache_path,fname)
+
             except IOError:
                 self._warn("couldn't write token cache to " + self.cache_path)
                 pass
