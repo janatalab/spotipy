@@ -145,7 +145,6 @@ class SpotifyOAuth(object):
             try:
                 # If we have an s3 bucket object, download the file
                 if self.aws:
-                    import boto3
                     fname = os.path.basename(self.cache_path)
 
                     self._get_s3_bucket().download_file(fname, self.cache_path)
