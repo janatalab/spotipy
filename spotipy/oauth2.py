@@ -127,7 +127,8 @@ class SpotifyOAuth(object):
 
         # Establish a connection to an AWS S3 bucket
         if self.aws:
-            import boto3, botocore
+            import boto3 
+            from botocore.client import ClientError
 
             try:
                 s3 = boto3.resource(
@@ -138,7 +139,8 @@ class SpotifyOAuth(object):
 
                 # get/create the bucket
                 s3_bucket = s3.create_bucket(Bucket=self.aws['s3_bucket'])
-            except botocore.client.ClientError:
+            except ClientError:
+                self._warn("couldn't access AWS bucket %s" % (self.aws['s3_bucket']))
                 pass
 
         return s3_bucket
@@ -151,13 +153,14 @@ class SpotifyOAuth(object):
             try:
                 # If we have an s3 bucket object, download the file
                 if self.aws:
-                    import botocore
+                    from botocore.client import ClientError
 
                     fname = os.path.basename(self.cache_path)
 
                     try:
                         self._get_s3_bucket().download_file(fname, self.cache_path)
-                    except botocore.client.ClientError:
+                    except ClientError:
+                        self._warn("couldn't read token cache <%s> from AWS bucket" % (fname))
                         pass
 
                 f = open(self.cache_path)
@@ -185,8 +188,13 @@ class SpotifyOAuth(object):
 
                 # If we have an open s3 bucket, upload the file
                 if self.aws:
-                    fname = os.path.basename(self.cache_path)
-                    self._get_s3_bucket().upload_file(self.cache_path,fname)
+                    from botocore.client import ClientError
+                    try:
+                        fname = os.path.basename(self.cache_path)
+                        self._get_s3_bucket().upload_file(self.cache_path,fname)
+                    except ClientError:
+                        self._warn("couldn't write token cache <%s> to AWS bucket" % (fname))
+                        pass
 
             except IOError:
                 self._warn("couldn't write token cache to " + self.cache_path)
