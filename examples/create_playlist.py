@@ -1,29 +1,31 @@
 # Creates a playlist for a user
 
-import pprint
-import sys
-import os
-import subprocess
+import argparse
+import logging
 
 import spotipy
-import spotipy.util as util
+from spotipy.oauth2 import SpotifyOAuth
+
+logger = logging.getLogger('examples.create_playlist')
+logging.basicConfig(level='DEBUG')
 
 
-if len(sys.argv) > 2:
-    username = sys.argv[1]
-    playlist_name = sys.argv[2]
-    playlist_description = sys.argv[3]
-else:
-    print("Usage: %s username playlist-name playlist-description" % (sys.argv[0],))
-    sys.exit()
+def get_args():
+    parser = argparse.ArgumentParser(description='Creates a playlist for user')
+    parser.add_argument('-p', '--playlist', required=True,
+                        help='Name of Playlist')
+    parser.add_argument('-d', '--description', required=False, default='',
+                        help='Description of Playlist')
+    return parser.parse_args()
 
-token = util.prompt_for_user_token(username)
 
-if token:
-    sp = spotipy.Spotify(auth=token)
-    sp.trace = False
-    playlists = sp.user_playlist_create(username, playlist_name,
-                                        playlist_description)
-    pprint.pprint(playlists)
-else:
-    print("Can't get token for", username)
+def main():
+    args = get_args()
+    scope = "playlist-modify-public"
+    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
+    user_id = sp.me()['id']
+    sp.user_playlist_create(user_id, args.playlist)
+
+
+if __name__ == '__main__':
+    main()

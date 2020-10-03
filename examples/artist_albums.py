@@ -1,8 +1,21 @@
-import sys
+import argparse
+import logging
+
+from spotipy.oauth2 import SpotifyClientCredentials
 import spotipy
 
-''' shows the albums and tracks for a given artist.
-'''
+logger = logging.getLogger('examples.artist_albums')
+logging.basicConfig(level='INFO')
+
+sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials())
+
+
+def get_args():
+    parser = argparse.ArgumentParser(description='Gets albums from artist')
+    parser.add_argument('-a', '--artist', required=True,
+                        help='Name of Artist')
+    return parser.parse_args()
+
 
 def get_artist(name):
     results = sp.search(q='artist:' + name, type='artist')
@@ -12,6 +25,7 @@ def get_artist(name):
     else:
         return None
 
+
 def show_artist_albums(artist):
     albums = []
     results = sp.artist_albums(artist['id'], album_type='album')
@@ -19,23 +33,23 @@ def show_artist_albums(artist):
     while results['next']:
         results = sp.next(results)
         albums.extend(results['items'])
-    seen = set() # to avoid dups
-    albums.sort(key=lambda album:album['name'].lower())
+    seen = set()  # to avoid dups
+    albums.sort(key=lambda album: album['name'].lower())
     for album in albums:
         name = album['name']
         if name not in seen:
-            print((' ' + name))
+            logger.info('ALBUM: %s', name)
             seen.add(name)
 
-if __name__ == '__main__':
-    sp = spotipy.Spotify()
 
-    if len(sys.argv) < 2:
-        print(('Usage: {0} artist name'.format(sys.argv[0])))
+def main():
+    args = get_args()
+    artist = get_artist(args.artist)
+    if artist:
+        show_artist_albums(artist)
     else:
-        name = ' '.join(sys.argv[1:])
-        artist = get_artist(name)
-        if artist:
-            show_artist_albums(artist)
-        else:
-            print("Can't find that artist")
+        logger.error("Can't find artist: %s", artist)
+
+
+if __name__ == '__main__':
+    main()

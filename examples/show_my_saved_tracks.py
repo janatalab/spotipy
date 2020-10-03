@@ -1,24 +1,22 @@
-# shows a user's saved tracks (need to be authenticated via oauth)
+# Shows a user's saved tracks (need to be authenticated via oauth)
 
-import sys
 import spotipy
-import spotipy.util as util
+from spotipy.oauth2 import SpotifyOAuth
 
 scope = 'user-library-read'
 
-if len(sys.argv) > 1:
-    username = sys.argv[1]
-else:
-    print("Usage: %s username" % (sys.argv[0],))
-    sys.exit()
 
-token = util.prompt_for_user_token(username, scope)
-
-if token:
-    sp = spotipy.Spotify(auth=token)
-    results = sp.current_user_saved_tracks()
+def show_tracks(results):
     for item in results['items']:
         track = item['track']
-        print(track['name'] + ' - ' + track['artists'][0]['name'])
-else:
-    print("Can't get token for", username)
+        print("%32.32s %s" % (track['artists'][0]['name'], track['name']))
+
+
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
+
+results = sp.current_user_saved_tracks()
+show_tracks(results)
+
+while results['next']:
+    results = sp.next(results)
+    show_tracks(results)
